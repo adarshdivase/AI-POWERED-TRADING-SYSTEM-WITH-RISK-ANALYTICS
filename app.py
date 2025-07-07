@@ -14,13 +14,14 @@ import asyncio
 import streamlit as st
 import time
 
-# NEW: Imports from the modern alpaca-py library
+# NEW (Corrected): Imports from the modern alpaca-py library
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, GetBarsRequest, GetOrdersRequest
-from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
+from alpaca.trading.requests import MarketOrderRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.timeframe import TimeFrame
-from alpaca.data.live import StockDataStream, CryptoDataStream
+from alpaca.data.live import StockDataStream
 from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest # CORRECTED IMPORT LOCATION
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')
@@ -32,7 +33,6 @@ class TechnicalAnalysis:
     def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
         try:
             df = df.copy()
-            # Ensure 'Close' column is numeric
             df['Close'] = pd.to_numeric(df['Close'])
             df['SMA_20'] = df['Close'].rolling(window=20).mean()
             df['EMA_12'] = df['Close'].ewm(span=12, adjust=False).mean()
@@ -42,12 +42,13 @@ class TechnicalAnalysis:
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            if loss.eq(0).all():
-                rs = np.inf
-            else:
-                rs = gain / loss
+            
+            # Avoid division by zero for RSI
+            rs = gain / loss
+            rs.replace([np.inf, -np.inf], 0, inplace=True) # Replace inf with 0
+            rs.fillna(0, inplace=True) # Fill NaN with 0
+
             df['RSI'] = 100 - (100 / (1 + rs))
-            df['RSI'].fillna(100, inplace=True) # Fill RSI NaNs where loss is zero
             return df
         except Exception as e:
             logger.error(f"Error calculating indicators: {e}")
@@ -55,7 +56,6 @@ class TechnicalAnalysis:
 
 # --- Live Trading Logic ---
 class LiveTradingSystem:
-    # NEW: Using the new TradingClient
     def __init__(self, symbols: List[str], trading_client: TradingClient):
         self.symbols = symbols
         self.trading_client = trading_client
@@ -68,8 +68,8 @@ class LiveTradingSystem:
         
         for symbol in self.symbols:
             try:
-                # NEW: Using the new GetBarsRequest format
-                request_params = GetBarsRequest(
+                # NEW: Using the new StockBarsRequest format
+                request_params = StockBarsRequest(
                     symbol_or_symbols=[symbol],
                     timeframe=TimeFrame.Hour,
                     start=datetime.now() - timedelta(hours=200)
@@ -108,7 +108,6 @@ st.title("📈 Live AI-Powered Trading System (Upgraded)")
 
 # --- Connect to Alpaca ---
 try:
-    # NEW: Initializing the new TradingClient
     trading_client = TradingClient(st.secrets["API_KEY"], st.secrets["SECRET_KEY"], paper=True)
     st.success("Connected to Alpaca Paper Trading API.")
 except Exception as e:
@@ -117,7 +116,7 @@ except Exception as e:
 
 # --- Initialize Session State ---
 if 'trading_system' not in st.session_state:
-    st.session_state.trading_system = LiveTradingSystem(symbols=['AAPL', 'GOOGL', 'MSFT'], api=trading_client)
+    st.session_state.trading_system = LiveTradingSystem(symbols=['AAPL', 'GOOGL', 'MSFT'], trading_client=trading_client)
     st.session_state.trading_system.initialize_data()
     st.session_state.log = []
     st.session_state.run = False
@@ -157,7 +156,6 @@ async def bar_callback(bar):
 
     log_msg = f"{datetime.now().strftime('%H:%M:%S')} | {symbol} | Price: {bar.close:.2f} | RSI: {st.session_state.data[symbol].iloc[-1]['RSI']:.2f} | Signal: {signal}"
 
-    # NEW: Using the new MarketOrderRequest format
     if signal == 1 and position_qty == 0:
         order_data = MarketOrderRequest(symbol=symbol, qty=1, side=OrderSide.BUY, time_in_force=TimeInForce.DAY)
         try:
@@ -181,14 +179,11 @@ async def bar_callback(bar):
 
 # --- Main Loop ---
 async def main_loop():
-    # NEW: Using the new DataStream classes
     stock_stream = StockDataStream(st.secrets["API_KEY"], st.secrets["SECRET_KEY"])
     
-    # Subscribe to symbols
     for symbol in st.session_state.trading_system.symbols:
         stock_stream.subscribe_bars(bar_callback, symbol)
     
-    # Run the stream in a separate thread
     stock_stream.run()
 
     while st.session_state.get('run', False):
@@ -229,4 +224,3 @@ if st.session_state.get('run', False):
         st.session_state.run = False
 else:
     st.info("System is stopped. Click 'Start Trading' in the sidebar to begin.")
-

@@ -5,7 +5,6 @@ torch
 transformers
 scikit-learn
 yfinance
-tensorflow
 plotly
 seaborn
 matplotlib

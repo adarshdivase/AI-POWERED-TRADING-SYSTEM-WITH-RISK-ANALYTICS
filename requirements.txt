@@ -2,12 +2,7 @@ streamlit
 numpy
 pandas
 torch
-transformers
 scikit-learn
 yfinance
 plotly
-seaborn
-matplotlib
-scipy
-networkx
-Pillow
+alpaca-trade-api

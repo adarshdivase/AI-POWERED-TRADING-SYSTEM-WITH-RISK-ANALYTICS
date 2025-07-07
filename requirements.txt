@@ -1,0 +1,14 @@
+streamlit
+numpy
+pandas
+torch
+transformers
+scikit-learn
+yfinance
+tensorflow
+plotly
+seaborn
+matplotlib
+scipy
+networkx
+Pillow

@@ -21,7 +21,7 @@ from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.data.live import StockDataStream
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
-from alpaca.data.enums import TimeFrame # CORRECTED IMPORT LOCATION
+from alpaca.common.enums import TimeFrame # CORRECTED IMPORT LOCATION
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')

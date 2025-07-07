@@ -3,7 +3,5 @@ numpy
 pandas
 torch
 scikit-learn
-yfinance
 plotly
-alpaca-trade-api
-alpha-vantage
+alpaca-py
